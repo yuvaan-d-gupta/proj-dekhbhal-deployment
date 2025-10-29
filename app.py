@@ -5,6 +5,8 @@ import io
 import base64
 import numpy as np
 import tensorflow as tf
+import gc
+import threading
 
 # Configure TensorFlow to use memory growth and limit GPU memory if available
 gpus = tf.config.experimental.list_physical_devices('GPU')
@@ -46,6 +48,7 @@ def create_model():
 # Load the trained model.
 MODEL_PATH = os.getenv("MODEL_PATH", "wound_model_processed.h5")
 MODEL_URL = os.getenv("MODEL_URL")
+LAZY_LOAD = os.getenv("LAZY_LOAD", "0") == "1"
 
 def ensure_model_file():
     if os.path.exists(MODEL_PATH):
@@ -64,24 +67,53 @@ def ensure_model_file():
         raise RuntimeError(
             f"Downloaded model seems invalid or too small at '{MODEL_PATH}'. Check MODEL_URL permissions and link."
         )
-try:
+model = None
+model_lock = threading.Lock()
+
+def load_global_model_if_needed():
+    global model
+    if model is not None:
+        return
     ensure_model_file()
-    # Create new model instance
-    model = create_model()
+    m = create_model()
+    m.load_weights(MODEL_PATH)
+    m.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+    model = m
+    print("Model loaded into memory")
 
-    # Load weights
-    model.load_weights(MODEL_PATH)
+# Eagerly load model unless LAZY_LOAD is enabled
+if not LAZY_LOAD:
+    try:
+        with model_lock:
+            load_global_model_if_needed()
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+        raise
 
-    # Compile model
-    model.compile(
-        optimizer='adam',
-        loss='categorical_crossentropy',
-        metrics=['accuracy']
-    )
-    print("Model loaded successfully!")
-except Exception as e:
-    print(f"Error loading model: {str(e)}")
-    raise
+def predict_with_model(img_array: np.ndarray) -> np.ndarray:
+    """Run prediction either with a persistent model or lazily per request.
+    Returns the raw predictions array.
+    """
+    if LAZY_LOAD:
+        # Load a temporary model just for this request to minimize steady-state RAM
+        ensure_model_file()
+        temp_model = create_model()
+        temp_model.load_weights(MODEL_PATH)
+        temp_model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+        try:
+            preds = temp_model.predict(img_array, verbose=0, batch_size=1)
+        finally:
+            # Free as much memory as possible
+            del temp_model
+            tf.keras.backend.clear_session()
+            gc.collect()
+        return preds
+    else:
+        # Use persistent model
+        if model is None:
+            with model_lock:
+                load_global_model_if_needed()
+        return model.predict(img_array, verbose=0, batch_size=1)
 
 # Define the wound classes (must match the order used during training)
 WOUND_CLASSES = [
@@ -131,16 +163,19 @@ def predict():
         
         # Process the image
         img = Image.open(io.BytesIO(img_bytes)).convert('RGB')
-        img = img.resize((224, 224))
-        img_array = np.array(img) / 255.0
+        img = img.resize((224, 224), Image.BILINEAR)
+        img_array = np.asarray(img, dtype=np.float32) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
         # Make prediction with minimal memory usage
-        predictions = model.predict(img_array, verbose=0, batch_size=1)
+        predictions = predict_with_model(img_array)
         predicted_index = int(np.argmax(predictions[0]))
         predicted_label = WOUND_CLASSES[predicted_index]
         confidence = float(predictions[0][predicted_index])
         
+        # Explicitly free temporary arrays
+        del img, img_array, predictions
+        gc.collect()
         return jsonify({'predicted_label': predicted_label, 'confidence': confidence})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -164,15 +199,17 @@ def upload():
         
         # Process the uploaded image.
         img = Image.open(file.stream).convert('RGB')
-        img = img.resize((224, 224))
-        img_array = np.array(img) / 255.0
+        img = img.resize((224, 224), Image.BILINEAR)
+        img_array = np.asarray(img, dtype=np.float32) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
-        predictions = model.predict(img_array, verbose=0, batch_size=1)
+        predictions = predict_with_model(img_array)
         predicted_index = int(np.argmax(predictions[0]))
         predicted_label = WOUND_CLASSES[predicted_index]
         confidence = float(predictions[0][predicted_index])
         
+        del img, img_array, predictions
+        gc.collect()
         return jsonify({'predicted_label': predicted_label, 'confidence': confidence})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
