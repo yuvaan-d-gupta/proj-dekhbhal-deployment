@@ -7,6 +7,7 @@ import numpy as np
 import tensorflow as tf
 from PIL import Image
 from flask import Flask, render_template, request, jsonify
+import requests
 from tensorflow.keras.layers import *
 from tensorflow.keras.models import Sequential
 
@@ -30,14 +31,34 @@ def create_model():
     return model
 
 # Load the trained model.
-MODEL_PATH = "wound_model_processed.h5"
+MODEL_PATH = os.getenv("MODEL_PATH", "wound_model_processed.h5")
+MODEL_URL = os.getenv("MODEL_URL")
+
+def ensure_model_file():
+    if os.path.exists(MODEL_PATH):
+        return
+    if not MODEL_URL:
+        raise RuntimeError("Model file not found and MODEL_URL is not set.")
+    # Stream download to avoid high memory usage
+    with requests.get(MODEL_URL, stream=True, timeout=300) as response:
+        response.raise_for_status()
+        with open(MODEL_PATH, "wb") as model_file:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    model_file.write(chunk)
+    # Validate file exists and has a reasonable size (>1MB)
+    if not os.path.exists(MODEL_PATH) or os.path.getsize(MODEL_PATH) < 1 * 1024 * 1024:
+        raise RuntimeError(
+            f"Downloaded model seems invalid or too small at '{MODEL_PATH}'. Check MODEL_URL permissions and link."
+        )
 try:
+    ensure_model_file()
     # Create new model instance
     model = create_model()
-    
+
     # Load weights
     model.load_weights(MODEL_PATH)
-    
+
     # Compile model
     model.compile(
         optimizer='adam',
