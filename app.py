@@ -5,6 +5,19 @@ import io
 import base64
 import numpy as np
 import tensorflow as tf
+
+# Configure TensorFlow to use memory growth and limit GPU memory if available
+gpus = tf.config.experimental.list_physical_devices('GPU')
+if gpus:
+    try:
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+    except RuntimeError as e:
+        print(f"GPU memory growth error: {e}")
+
+# Limit CPU threads to reduce memory usage
+tf.config.threading.set_intra_op_parallelism_threads(1)
+tf.config.threading.set_inter_op_parallelism_threads(1)
 from PIL import Image
 from flask import Flask, render_template, request, jsonify
 import requests
@@ -122,8 +135,8 @@ def predict():
         img_array = np.array(img) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
-        # Make prediction
-        predictions = model.predict(img_array)
+        # Make prediction with minimal memory usage
+        predictions = model.predict(img_array, verbose=0, batch_size=1)
         predicted_index = int(np.argmax(predictions[0]))
         predicted_label = WOUND_CLASSES[predicted_index]
         confidence = float(predictions[0][predicted_index])
@@ -155,7 +168,7 @@ def upload():
         img_array = np.array(img) / 255.0
         img_array = np.expand_dims(img_array, axis=0)
         
-        predictions = model.predict(img_array)
+        predictions = model.predict(img_array, verbose=0, batch_size=1)
         predicted_index = int(np.argmax(predictions[0]))
         predicted_label = WOUND_CLASSES[predicted_index]
         confidence = float(predictions[0][predicted_index])
