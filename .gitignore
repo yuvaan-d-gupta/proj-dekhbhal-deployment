@@ -1,0 +1,33 @@
+
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+
+.idea/
+.vscode/
+*.swp
+*.swo
+
+
+.DS_Store
+Thumbs.db
+
+
+*.log 
+*.env
+.env
+
+# Large artifacts
+*.h5
+*.hdf5
+*.keras
+wound_model*.h5
+
+# Datasets and training artifacts
+training/dataset/
+training/wound_model_improved_phase1.h5

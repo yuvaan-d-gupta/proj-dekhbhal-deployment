@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Upload - Wound Detection</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Devanagari:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary-pink: #FF69B4;
+      --light-pink: #FFB6C1;
+      --dark-pink: #DB7093;
+      --accent-pink: #FF1493;
+    }
+
+    body {
+      background: linear-gradient(135deg, #FFF0F5 0%, #FFE4E1 100%);
+      font-family: 'Poppins', 'Noto Sans Devanagari', sans-serif;
+      min-height: 100vh;
+      padding: 40px 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+
+    h1 {
+      color: var(--dark-pink);
+      font-weight: 600;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+      margin-bottom: 2rem;
+      position: relative;
+      display: inline-block;
+    }
+
+    h1::after {
+      content: '';
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 3px;
+      background: var(--primary-pink);
+      border-radius: 2px;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.95);
+      border: none;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(219, 112, 147, 0.2);
+      transform-style: preserve-3d;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 40px rgba(219, 112, 147, 0.3);
+    }
+
+    .card-body {
+      padding: 2.5rem;
+    }
+
+    .upload-icon {
+      font-size: 4rem;
+      color: var(--primary-pink);
+      margin-bottom: 1.5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+      100% { transform: translateY(0px); }
+    }
+
+    .upload-area {
+      border: 2px dashed var(--light-pink);
+      border-radius: 15px;
+      padding: 2rem;
+      margin: 2rem 0;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.5);
+    }
+
+    .upload-area:hover {
+      border-color: var(--primary-pink);
+      background: rgba(255, 255, 255, 0.8);
+    }
+
+    .upload-area.dragover {
+      border-color: var(--primary-pink);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .btn-custom {
+      background: linear-gradient(45deg, var(--primary-pink), var(--accent-pink));
+      border: none;
+      color: white;
+      padding: 12px 30px;
+      border-radius: 25px;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      margin: 10px 5px;
+      box-shadow: 0 4px 15px rgba(219, 112, 147, 0.3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-size: 0.9rem;
+    }
+
+    .btn-custom:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(219, 112, 147, 0.4);
+      background: linear-gradient(45deg, var(--accent-pink), var(--primary-pink));
+    }
+
+    .btn-custom:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .preview-image {
+      max-width: 300px;
+      border-radius: 15px;
+      margin: 1rem auto;
+      display: none;
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .preview-image:hover {
+      transform: scale(1.02);
+    }
+
+    .result-card {
+      display: none;
+      background: linear-gradient(135deg, var(--light-pink) 0%, white 100%);
+      border: none;
+      border-radius: 15px;
+      padding: 2rem;
+      margin-top: 2rem;
+      box-shadow: 0 5px 15px rgba(219, 112, 147, 0.2);
+      animation: slideUp 0.5s ease;
+    }
+
+    @keyframes slideUp {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .confidence-bar {
+      height: 12px;
+      background: var(--light-pink);
+      border-radius: 6px;
+      margin: 1.5rem 0;
+      overflow: hidden;
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .confidence-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary-pink), var(--accent-pink));
+      transition: width 1s ease;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .result-card h4 {
+      color: var(--dark-pink);
+      font-weight: 600;
+      margin-bottom: 1rem;
+    }
+
+    .result-card p {
+      margin: 0.5rem 0;
+      font-size: 1.1rem;
+    }
+
+    .spinner {
+      display: none;
+      width: 3rem;
+      height: 3rem;
+      margin: 1rem auto;
+      color: var(--primary-pink);
+    }
+
+    .back-btn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      background: var(--light-pink);
+      color: white;
+      padding: 10px 20px;
+      border-radius: 25px;
+      text-decoration: none;
+      box-shadow: 0 4px 15px rgba(219, 112, 147, 0.3);
+      transition: all 0.3s ease;
+    }
+
+    .back-btn:hover {
+      background: var(--primary-pink);
+      transform: translateY(-2px);
+      color: white;
+    }
+
+    /* Language selector styles */
+    .language-selector {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+
+    .language-selector select {
+      background: var(--light-pink);
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 20px;
+      font-weight: 500;
+      cursor: pointer;
+      box-shadow: 0 2px 10px rgba(219, 112, 147, 0.2);
+      min-width: 120px;
+      text-align: center;
+      text-align-last: center;
+      -moz-text-align-last: center;
+    }
+
+    .language-selector select:hover {
+      background: var(--primary-pink);
+    }
+
+    .language-selector select option {
+      background: white;
+      color: var(--dark-pink);
+      text-align: center;
+      padding: 8px;
+    }
+
+    /* RTL support */
+    [dir="rtl"] {
+      text-align: right;
+    }
+
+    [dir="rtl"] .language-selector {
+      left: 20px;
+      right: auto;
+    }
+
+    [dir="rtl"] .btn-custom {
+      direction: rtl;
+    }
+  </style>
+</head>
+<body>
+  <!-- Language selector -->
+  <div class="language-selector">
+    <select id="languageSelect" onchange="changeLanguage(this.value)">
+      <option value="en">English</option>
+      <option value="hi">हिंदी</option>
+    </select>
+  </div>
+
+  <a href="/" class="back-btn" data-translate="back">← Back</a>
+  
+  <div class="container text-center">
+    <h1 data-translate="upload_title">Upload Image</h1>
+    <div class="card">
+      <div class="card-body">
+        <div class="upload-icon">📁</div>
+        <p class="mb-4" data-translate="upload_description">Upload an image file for wound analysis</p>
+        
+        <div class="upload-area" id="dropZone">
+          <input type="file" id="fileInput" accept="image/jpeg, image/png" class="form-control w-50 mx-auto mb-4">
+          <p class="text-muted" data-translate="drag_drop">Drag and drop your image here or click to browse</p>
+        </div>
+        
+        <button id="uploadBtn" class="btn btn-custom" data-translate="analyze_image">Analyze Image</button>
+        
+        <!-- Loading spinner -->
+        <div class="spinner-border spinner" role="status">
+          <span class="visually-hidden" data-translate="loading">Loading...</span>
+        </div>
+
+        <!-- Image preview -->
+        <img id="previewImage" class="preview-image" alt="Preview" data-translate-alt="preview">
+        
+        <!-- Prediction result -->
+        <div id="result" class="result-card">
+          <h4 data-translate="analysis_result">Analysis Result</h4>
+          <p id="predictionText"></p>
+          <div class="confidence-bar">
+            <div id="confidenceFill" class="confidence-fill"></div>
+          </div>
+          <p id="confidenceText"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    // Language translations
+    const translations = {
+      en: {
+        back: "← Back",
+        upload_title: "Upload Image",
+        upload_description: "Upload an image file for wound analysis",
+        drag_drop: "Drag and drop your image here or click to browse",
+        analyze_image: "Analyze Image",
+        loading: "Loading...",
+        preview: "Preview",
+        analysis_result: "Analysis Result",
+        predicted_wound_type: "Predicted Wound Type:",
+        confidence: "Confidence:",
+        select_file_first: "Please select an image file first.",
+        upload_error: "An error occurred during file upload prediction."
+      },
+      hi: {
+        back: "← वापस",
+        upload_title: "छवि अपलोड करें",
+        upload_description: "घाव विश्लेषण के लिए एक छवि फ़ाइल अपलोड करें",
+        drag_drop: "अपनी छवि यहां ड्रैग और ड्रॉप करें या ब्राउज़ करने के लिए क्लिक करें",
+        analyze_image: "छवि का विश्लेषण करें",
+        loading: "लोड हो रहा है...",
+        preview: "पूर्वावलोकन",
+        analysis_result: "विश्लेषण परिणाम",
+        predicted_wound_type: "अनुमानित घाव प्रकार:",
+        confidence: "विश्वास स्तर:",
+        select_file_first: "कृपया पहले एक छवि फ़ाइल चुनें।",
+        upload_error: "फ़ाइल अपलोड पूर्वानुमान के दौरान एक त्रुटि हुई।"
+      }
+    };
+
+    function changeLanguage(lang) {
+      // Update HTML dir attribute for RTL support
+      document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+      document.documentElement.lang = lang;
+
+      // Update all translatable elements
+      document.querySelectorAll('[data-translate]').forEach(element => {
+        const key = element.getAttribute('data-translate');
+        if (translations[lang] && translations[lang][key]) {
+          element.textContent = translations[lang][key];
+        }
+      });
+
+      // Update alt text for images
+      document.querySelectorAll('[data-translate-alt]').forEach(element => {
+        const key = element.getAttribute('data-translate-alt');
+        if (translations[lang] && translations[lang][key]) {
+          element.alt = translations[lang][key];
+        }
+      });
+
+      // Store language preference
+      localStorage.setItem('preferred_language', lang);
+    }
+
+    // Load preferred language on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      const preferredLang = localStorage.getItem('preferred_language') || 'en';
+      document.getElementById('languageSelect').value = preferredLang;
+      changeLanguage(preferredLang);
+    });
+
+    // Get DOM elements
+    const resultDiv = document.getElementById('result');
+    const fileInput = document.getElementById('fileInput');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const spinner = document.querySelector('.spinner');
+    const previewImage = document.getElementById('previewImage');
+    const predictionText = document.getElementById('predictionText');
+    const confidenceFill = document.getElementById('confidenceFill');
+    const confidenceText = document.getElementById('confidenceText');
+    const dropZone = document.getElementById('dropZone');
+
+    // Drag and drop functionality
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropZone.addEventListener(eventName, highlight, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropZone.addEventListener(eventName, unhighlight, false);
+    });
+
+    function highlight(e) {
+      dropZone.classList.add('dragover');
+    }
+
+    function unhighlight(e) {
+      dropZone.classList.remove('dragover');
+    }
+
+    dropZone.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      fileInput.files = files;
+      handleFileSelect(files[0]);
+    }
+
+    // Preview image before upload
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        handleFileSelect(file);
+      }
+    });
+
+    function handleFileSelect(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewImage.src = e.target.result;
+        previewImage.style.display = 'block';
+        resultDiv.style.display = 'none';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Handle file upload for prediction
+    uploadBtn.addEventListener("click", () => {
+      if (fileInput.files.length === 0) {
+        const currentLang = document.getElementById('languageSelect').value;
+        alert(translations[currentLang].select_file_first);
+        return;
+      }
+
+      // Show loading state
+      spinner.style.display = 'block';
+      uploadBtn.disabled = true;
+      resultDiv.style.display = 'none';
+
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+
+      fetch('/upload', {
+        method: 'POST',
+        body: formData
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.error) {
+          predictionText.innerHTML = `<span class="text-danger">Error: ${data.error}</span>`;
+        } else {
+          const currentLang = document.getElementById('languageSelect').value;
+          const confidence = (data.confidence * 100).toFixed(2);
+          predictionText.innerHTML = `${translations[currentLang].predicted_wound_type} <strong>${data.predicted_label.replace('_', ' ').toUpperCase()}</strong>`;
+          confidenceFill.style.width = `${confidence}%`;
+          confidenceText.innerHTML = `${translations[currentLang].confidence} ${confidence}%`;
+        }
+        resultDiv.style.display = 'block';
+      })
+      .catch(error => {
+        console.error('Error:', error);
+        const currentLang = document.getElementById('languageSelect').value;
+        predictionText.innerHTML = translations[currentLang].upload_error;
+        resultDiv.style.display = 'block';
+      })
+      .finally(() => {
+        spinner.style.display = 'none';
+        uploadBtn.disabled = false;
+      });
+    });
+  </script>
+</body>
+</html> 
